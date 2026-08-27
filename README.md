@@ -1,14 +1,24 @@
 # FitFlow
 
-A food and training log that runs entirely in the browser. No account, no server,
-no network calls — your data lives in the browser's own storage and never leaves
-the device.
+A food and training log. The core runs entirely in the browser — no account, no
+server, your data in the browser's own storage. Two extras need the bundled
+server: barcode scanning and plain-words food entry.
 
 ## What it does
 
 **Today** — search a built-in list of ~74 common foods (or add your own), pick a
 portion in grams, and it logs the calories and macros. A dial shows calories left
 against your target; three bars show protein, carbs and fat. Weigh-ins go in here too.
+
+Two faster ways in, when the server is running:
+
+- **Describe it** — type "two scrambled eggs, a slice of toast with butter" and
+  Claude works out the weights and macros. You see every assumption it made
+  ("2 large eggs at 55 g each"), can adjust any weight, and can drop any item
+  before it is logged. Nothing is written until you confirm.
+- **Scan barcode** — point the camera at a packet, or type the number underneath.
+  Nutrition comes from Open Food Facts. Scanned products are saved into your own
+  food list, so the second scan of the same thing works offline.
 
 **Gym** — log a session as exercises with sets of weight × reps. Each exercise shows
 what you lifted last time so you know what to beat, plus session volume, estimated
@@ -24,15 +34,46 @@ daily calorie and macro targets. Every number can be overridden by hand.
 
 ## Running it
 
-Open `index.html` in a browser — that is the whole app, one self-contained file.
+`index.html` on its own is the whole tracker — open it in a browser and it works,
+minus the two network features.
 
-To reach it from a phone on the same network, or to add it to a home screen:
+For everything, install once and start the server:
+
+```bash
+npm install
+```
 
 ```bash
 node server.mjs
 ```
 
-Then open `http://<your-computer-ip>:8744`.
+Then open `http://localhost:8744`. The startup lines tell you which features are on.
+
+### Turning on plain-words entry
+
+It needs an Anthropic API key on the server:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... node server.mjs
+```
+
+Each meal you describe costs a fraction of a cent (a few hundred tokens through
+`claude-opus-5` at low effort). Barcode lookup is free and needs no key.
+
+### Using it from your phone
+
+The app checks `/api/health` on load and hides the two buttons if it cannot reach
+the server, so a phone needs the server reachable — and **the camera only works
+over https**, which rules out plain `http://<laptop-ip>:8744`. Deploy it (Railway,
+Fly, anything that runs `npm start`) and set:
+
+| Variable | Why |
+|---|---|
+| `ANTHROPIC_API_KEY` | enables plain-words entry |
+| `FITFLOW_TOKEN` | **required for a public deploy** — a shared code the app must send before `/api/parse` will spend anything. Enter it once under **You → Smart entry → Access code**. |
+
+Without `FITFLOW_TOKEN`, `/api/parse` refuses every request that is not from
+localhost, so a public URL cannot burn your API credit by accident.
 
 ## The published version
 
@@ -46,6 +87,10 @@ Never edit `dist/artifact.html` directly — edit `index.html` and rebuild. The
 markers `<!--ARTIFACT:HEAD-START-->` and `<!--ARTIFACT:BODY-START-->` in
 `index.html` are what the build script slices on.
 
+The claude.ai host blocks all outbound connections from the page, so the artifact
+build is always the offline tracker: searching, logging, gym, and progress work;
+barcode and plain-words entry hide themselves and the **You** tab explains why.
+
 ## Data
 
 Everything is under the `fitflow.v1` key in `localStorage`. That means:
@@ -56,13 +101,23 @@ Everything is under the `fitflow.v1` key in `localStorage`. That means:
   That is the only way to move data between devices.
 
 Logged food entries store their own calorie and macro numbers, so editing or
-deleting a food later never rewrites days you already logged.
+deleting a food later never rewrites days you already logged. The same applies to
+anything the AI or a barcode produced — once logged, the numbers are frozen.
+
+The access code is kept under a separate `fitflow.token` key and is deliberately
+left out of backups, so an exported file can be moved around without carrying it.
 
 ## Nutrition numbers
 
 Food values are per 100 g from standard reference data, rounded. They are close
 enough for tracking trends, not lab-accurate — brands vary. Anything you eat often
 is worth adding yourself from the label via **New food**.
+
+The same caution applies harder to plain-words entry: it is an estimate of an
+estimate, since it has to guess your portion size as well as the food. That is why
+the app shows you every assumption and lets you correct the weight before logging.
+Barcode data is crowd-sourced and occasionally wrong; check it against the packet
+the first time you scan something.
 
 Calorie targets use Mifflin-St Jeor for BMR, an activity multiplier for daily
 burn, and 7,700 kcal per kg of body fat for the deficit or surplus. Protein is set

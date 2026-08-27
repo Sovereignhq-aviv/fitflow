@@ -222,6 +222,56 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink-3)}
 .stat span{display:block;font-family:Oswald,sans-serif;font-size:10px;color:var(--ink-3);letter-spacing:.09em;text-transform:uppercase;margin-top:3px}
 .goalbar{height:9px;border-radius:99px;background:var(--track);overflow:hidden;margin:13px 0 9px}
 .goalbar i{display:block;height:100%;background:var(--ink);border-radius:99px;transition:width .6s cubic-bezier(.2,.8,.25,1)}
+/* ---- smart entry: describe + barcode ---- */
+.bigrow{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.big{
+  display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:13px;
+  border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left
+}
+.big:hover{border-color:var(--ink-3)}
+.big:disabled{opacity:.45;cursor:not-allowed}
+.big .ic{width:19px;height:19px;stroke-width:1.8;color:var(--ink-2)}
+.big b{font-size:13.5px;font-weight:600;line-height:1.25}
+.big span{font-size:11px;color:var(--ink-3);line-height:1.35}
+textarea#dq{min-height:88px;resize:vertical;line-height:1.5}
+
+.spin{
+  width:15px;height:15px;border-radius:50%;flex:none;
+  border:2px solid var(--track);border-top-color:var(--ink);animation:sp .7s linear infinite
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+.working{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);padding:13px 0}
+
+.pitem{display:grid;grid-template-columns:1fr 78px 30px;gap:9px;align-items:start;padding:11px 13px;border-bottom:1px solid var(--line-soft)}
+.pitem:last-of-type{border-bottom:0}
+.pitem .nm{font-size:13.5px;font-weight:500;line-height:1.3}
+.pitem .as{font-size:11px;color:var(--ink-3);margin-top:2px;line-height:1.35}
+.pitem .mac{font-size:11px;color:var(--ink-2);margin-top:3px;font-variant-numeric:tabular-nums}
+.pitem input{padding:7px 8px;font-size:13.5px;text-align:center;font-variant-numeric:tabular-nums}
+.pitem .gl{display:block;font-size:9.5px;color:var(--ink-3);text-align:center;margin-top:3px;letter-spacing:.06em;text-transform:uppercase}
+.ptot{display:flex;gap:8px;align-items:center;padding:12px 13px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
+.ptot b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+
+.cam{position:relative;border-radius:12px;overflow:hidden;background:#0b0c0e;aspect-ratio:4/3}
+.cam video{width:100%;height:100%;object-fit:cover;display:block}
+.cam .retic{
+  position:absolute;left:12%;right:12%;top:34%;bottom:34%;
+  border:2px solid rgba(255,255,255,.85);border-radius:8px;
+  box-shadow:0 0 0 100vmax rgba(0,0,0,.35)
+}
+.cam .hintbar{
+  position:absolute;left:0;right:0;bottom:0;padding:9px 12px;
+  background:linear-gradient(transparent,rgba(0,0,0,.7));color:#fff;font-size:11.5px;text-align:center
+}
+.warn{
+  border:1px solid var(--carb-soft);background:var(--carb-soft);color:var(--warn);
+  border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.5
+}
+.errbox{
+  border:1px solid var(--pro-soft);background:var(--pro-soft);color:var(--bad);
+  border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.5
+}
+
 /* ---- toast ---- */
 .toast{
   position:fixed;left:50%;transform:translate(-50%,14px);bottom:calc(88px + env(safe-area-inset-bottom));
@@ -452,6 +502,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink-3)}
         </div>
         <p class="hint">Edit any number to override it. "Recalculate" pulls them back to the formula.</p>
       </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head"><span class="eyebrow">Smart entry</span></div>
+      <div class="card stack" id="smartCard"></div>
     </div>
 
     <div class="sec">
@@ -689,6 +744,37 @@ const e1rm = (w,r) => w * (1 + r/30);      // Epley
 let view = 'today';
 let dDate = today();      // Today screen date
 let gDate = today();      // Gym screen date
+
+/* ---------------------------------------------------------------- backend */
+/* Barcode lookup and plain-words entry both need to reach the network, which a
+   bare file:// page and the claude.ai artifact host cannot do. Probe once and
+   hide those two buttons when they are not available, rather than failing later. */
+let BACKEND = {checked:false, ai:false, barcode:false, tokenRequired:false};
+const tokenGet = () => { try{ return localStorage.getItem('fitflow.token')||''; }catch(e){ return ''; } };
+const tokenSet = v => { try{ v ? localStorage.setItem('fitflow.token',v) : localStorage.removeItem('fitflow.token'); }catch(e){} };
+
+async function probeBackend(){
+  try{
+    const r = await fetch('./api/health', {signal:AbortSignal.timeout(4500)});
+    if(!r.ok) throw new Error('bad status');
+    const j = await r.json();
+    BACKEND = {checked:true, ai:!!j.ai, barcode:!!j.barcode, tokenRequired:!!j.tokenRequired};
+  }catch(e){
+    BACKEND = {checked:true, ai:false, barcode:false, tokenRequired:false};
+  }
+  if(view==='you') renderSmart();
+}
+
+async function apiPost(path, body){
+  const headers = {'content-type':'application/json'};
+  const tk = tokenGet();
+  if(tk) headers['x-fitflow-token'] = tk;
+  const r = await fetch(path, {method:'POST', headers, body:JSON.stringify(body), signal:AbortSignal.timeout(90000)});
+  let j = null;
+  try{ j = await r.json(); }catch(e){}
+  if(!r.ok) throw new Error((j && j.error) || ('Request failed ('+r.status+')'));
+  return j;
+}
 
 /* =========================================================== TODAY VIEW */
 function renderToday(){
@@ -991,6 +1077,7 @@ function renderYou(){
   $('#stS').value = S.goals.sessions;
   const t=S.targets;
   $('#tKcal').value=t.kcal; $('#tP').value=t.p; $('#tC').value=t.c; $('#tF').value=t.f;
+  renderSmart();
   const a=autoTargets(p);
   $('#calcHint').innerHTML = 'Your body burns about <b>'+r0(tdee(p))+' kcal</b> a day at this activity level. '
     + (p.goal==='maintain' ? 'To hold steady that is also your intake.'
@@ -998,8 +1085,44 @@ function renderYou(){
     + (t.auto ? '' : ' <b>You have overridden these numbers.</b>');
 }
 
+function renderSmart(){
+  const el=$('#smartCard');
+  if(!el) return;
+  if(!BACKEND.checked){
+    el.innerHTML='<div class="working"><i class="spin"></i>Checking what is available…</div>';
+    return;
+  }
+  const row=(on,label,detail)=>'<div class="kv"><span>'+label+'</span>'
+    + '<b><span class="pill '+(on?'ok':'mute')+'">'+(on?'On':'Off')+'</span></b></div>'
+    + (detail?'<p class="hint" style="margin:-2px 0 8px">'+detail+'</p>':'');
+
+  if(!BACKEND.barcode && !BACKEND.ai){
+    el.innerHTML = '<p class="note">Barcode scanning and plain-words entry both need to reach the internet, '
+      + 'which this copy of the app cannot do — it is running as a plain file or on the claude.ai page, where '
+      + 'outside connections are blocked.</p>'
+      + '<p class="note" style="margin-top:10px">To turn them on, run the app from its own folder:<br>'
+      + '<b>node server.mjs</b> — then open <b>http://localhost:8744</b>. '
+      + 'Set <b>ANTHROPIC_API_KEY</b> first for plain-words entry.</p>'
+      + '<p class="hint" style="margin-top:10px">Everything else — searching, logging, the gym log, progress — works exactly the same here.</p>';
+    return;
+  }
+  el.innerHTML =
+    row(BACKEND.barcode,'Barcode scanning','Nutrition comes from the Open Food Facts database. Scanned products are saved to your foods, so a rescan works offline.')
+    + row(BACKEND.ai,'Plain-words entry', BACKEND.ai
+        ? 'Describe a meal and Claude works out the weights and macros. You see and can edit every number before it is logged.'
+        : 'Set <b>ANTHROPIC_API_KEY</b> on the server and restart it.')
+    + (BACKEND.tokenRequired
+        ? '<div class="field" style="margin-top:12px"><label for="tkIn">Access code</label>'
+          + '<input type="text" id="tkIn" autocomplete="off" value="'+esc(tokenGet())+'" placeholder="the FITFLOW_TOKEN you set">'
+          + '<p class="hint">The server asks for this before spending on plain-words entry. Stored on this device only — it is not in your backups.</p></div>'
+        : '');
+  const tk=$('#tkIn');
+  if(tk) tk.addEventListener('change',()=>{ tokenSet(tk.value.trim()); toast('Access code saved'); });
+}
+
 /* =============================================================== SHEETS */
 function openSheet(title, html, after){
+  stopCam();                        // any sheet change ends a live camera
   $('#sheetTitle').textContent = title;
   $('#sheetBody').innerHTML = html;
   $('#sheet').classList.add('on');
@@ -1007,25 +1130,217 @@ function openSheet(title, html, after){
   if(after) after();
 }
 function closeSheet(){
+  stopCam();
   $('#sheet').classList.remove('on');
   $('#sheetBody').innerHTML='';
   document.body.style.overflow='';
 }
 
 /* ---- add food ---- */
-let pendingFood=null;
 function foodSheet(){
-  pendingFood=null;
+  const smart = (BACKEND.ai || BACKEND.barcode)
+    ? '<div class="bigrow">'
+      + '<button class="big" id="goDescribe"'+(BACKEND.ai?'':' disabled title="Needs the server running with an API key"')+'>'
+      + '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h11M4 17.5h7"/><path d="M17.5 16.5l1.6 3.2 3.2 1.6-3.2 1.6"/></svg>'
+      + '<b>Describe it</b><span>Type it in plain words</span></button>'
+      + '<button class="big" id="goBarcode"'+(BACKEND.barcode?'':' disabled')+'>'
+      + '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6v12M7.5 6v12M11 6v12M14 6v9M17 6v12M20 6v12"/></svg>'
+      + '<b>Scan barcode</b><span>Point at the packet</span></button>'
+      + '</div>'
+    : '';
   openSheet('Add food',
     '<div class="stack">'
+    + smart
     + '<div class="field"><input type="search" id="fq" placeholder="Search foods — chicken, rice, banana…" autocomplete="off"></div>'
     + '<div class="seg" id="mealSeg">' + MEALS.map((m,i)=>'<button data-v="'+m+'" aria-pressed="'+(i===guessMeal()?'true':'false')+'">'+m+'</button>').join('') + '</div>'
     + '<div class="sugg" id="fList"></div>'
     + '<div class="btnrow"><button class="btn ghost sm" id="newFood">New food</button>'
     + '<button class="btn ghost sm" id="quickKcal">Quick calories only</button></div>'
     + '</div>',
-    ()=>{ drawFoodList(''); $('#fq').focus(); }
+    ()=>{ drawFoodList(''); }
   );
+}
+
+/* ---- describe it in plain words ---- */
+let parsed=[];
+function describeSheet(meal){
+  parsed=[];
+  openSheet('Describe what you ate',
+    '<div class="stack">'
+    + '<div class="field"><textarea id="dq" placeholder="two scrambled eggs, a slice of toast with butter, and a flat white"></textarea>'
+    + '<p class="hint">Counts and rough amounts are fine — it works out the weights and tells you what it assumed.</p></div>'
+    + '<button class="btn wide" id="dGo">Work out the macros</button>'
+    + '<div id="dOut"></div></div>',
+    ()=>{
+      $('#dq').focus();
+      const run = async ()=>{
+        const text=$('#dq').value.trim();
+        if(!text){ $('#dq').focus(); return; }
+        $('#dGo').disabled=true;
+        $('#dOut').innerHTML='<div class="working"><i class="spin"></i>Reading that…</div>';
+        try{
+          const res=await apiPost('./api/parse',{text,meal});
+          parsed=res.items.map(i=>Object.assign({},i,{g0:i.g||1,kcal0:i.kcal,p0:i.p,c0:i.c,f0:i.f}));
+          drawParsed(res.meal||meal, res.unclear||[]);
+        }catch(err){
+          $('#dOut').innerHTML='<div class="errbox">'+esc(err.message)+'</div>';
+        }finally{ $('#dGo').disabled=false; }
+      };
+      $('#dGo').addEventListener('click',run);
+      $('#dq').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)) run(); });
+    }
+  );
+}
+function parsedTotals(){
+  return parsed.reduce((a,i)=>{
+    const k=i.g/i.g0;
+    a.kcal+=i.kcal0*k; a.p+=i.p0*k; a.c+=i.c0*k; a.f+=i.f0*k; return a;
+  },{kcal:0,p:0,c:0,f:0});
+}
+function drawParsed(meal, unclear){
+  if(!parsed.length){
+    $('#dOut').innerHTML='<div class="warn">Nothing in there looked like a food. Try naming what you ate.</div>';
+    return;
+  }
+  const t=parsedTotals();
+  $('#dOut').innerHTML =
+    (unclear.length ? '<div class="warn" style="margin-bottom:11px">Skipped: '+esc(unclear.join('; '))+'</div>' : '')
+    + '<div class="rows">'
+    + parsed.map((i,ix)=>{
+        const k=i.g/i.g0;
+        return '<div class="pitem"><div><div class="nm">'+esc(i.name)+'</div>'
+          + (i.assumption?'<div class="as">'+esc(i.assumption)+'</div>':'')
+          + '<div class="mac">'+r0(i.kcal0*k)+' kcal · P '+r1(i.p0*k)+' · C '+r1(i.c0*k)+' · F '+r1(i.f0*k)+'</div></div>'
+          + '<div><input type="number" min="0" step="1" inputmode="numeric" value="'+r1(i.g)+'" data-pg="'+ix+'" aria-label="Grams of '+esc(i.name)+'"><span class="gl">grams</span></div>'
+          + '<button class="x" data-prm="'+ix+'" aria-label="Remove '+esc(i.name)+'">'
+          + '<svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
+      }).join('')
+    + '<div class="ptot">Total <b>'+r0(t.kcal)+' kcal</b><span>·</span>P <b>'+r0(t.p)+'</b><span>·</span>C <b>'+r0(t.c)+'</b><span>·</span>F <b>'+r0(t.f)+'</b></div>'
+    + '</div>'
+    + '<button class="btn wide" id="dAdd" style="margin-top:12px">Add '+parsed.length+' '
+    + (parsed.length===1?'item':'items')+' to '+esc(meal)+'</button>';
+
+  $('#dOut').querySelectorAll('[data-pg]').forEach(inp=>inp.addEventListener('input',()=>{
+    parsed[+inp.dataset.pg].g=Math.max(0,Number(inp.value)||0);
+    const t2=parsedTotals();
+    const row=inp.closest('.pitem'), i=parsed[+inp.dataset.pg], k=i.g/i.g0;
+    row.querySelector('.mac').textContent=r0(i.kcal0*k)+' kcal · P '+r1(i.p0*k)+' · C '+r1(i.c0*k)+' · F '+r1(i.f0*k);
+    $('#dOut').querySelector('.ptot').innerHTML='Total <b>'+r0(t2.kcal)+' kcal</b><span>·</span>P <b>'+r0(t2.p)
+      +'</b><span>·</span>C <b>'+r0(t2.c)+'</b><span>·</span>F <b>'+r0(t2.f)+'</b>';
+  }));
+  $('#dOut').querySelectorAll('[data-prm]').forEach(b=>b.addEventListener('click',()=>{
+    parsed.splice(+b.dataset.prm,1); drawParsed(meal, unclear);
+  }));
+  const add=$('#dAdd');
+  if(add) add.addEventListener('click',()=>{
+    parsed.forEach(i=>{
+      const k=i.g/i.g0;
+      day(dDate).items.push({id:uid(),fid:null,name:i.name,g:i.g,meal:meal,
+        kcal:i.kcal0*k,p:i.p0*k,c:i.c0*k,f:i.f0*k});
+    });
+    const n=parsed.length;
+    save(); closeSheet(); renderToday(); toast(n+(n===1?' item':' items')+' added');
+  });
+}
+
+/* ---- barcode ---- */
+let camStop=null;
+function stopCam(){ if(camStop){ try{ camStop(); }catch(e){} camStop=null; } }
+function barcodeSheet(meal){
+  const canScan = ('BarcodeDetector' in window) && !!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia) && window.isSecureContext;
+  openSheet('Scan barcode',
+    '<div class="stack">'
+    + (canScan ? '<div class="cam" id="cam"><video id="bcVid" playsinline muted></video><div class="retic"></div>'
+                 + '<div class="hintbar" id="bcHint">Line the barcode up inside the box</div></div>' : '')
+    + (canScan ? '' : '<div class="warn">This browser cannot scan with the camera'
+        + (window.isSecureContext ? '' : ' (the page needs to be on https)')
+        + '. Type the number printed under the barcode instead.</div>')
+    + '<div class="field"><label for="bcNum">Barcode number</label>'
+    + '<input type="text" id="bcNum" inputmode="numeric" autocomplete="off" placeholder="e.g. 3017624010701"></div>'
+    + '<button class="btn wide" id="bcGo">Look it up</button>'
+    + '<div id="bcOut"></div></div>',
+    ()=>{
+      const lookup = async code=>{
+        stopCam();
+        // A barcode scanned before is already in the food library — no round trip needed.
+        const known=S.foods.find(f=>f.id==='bc_'+code);
+        if(known){ portionSheet(known, meal); return; }
+        $('#bcOut').innerHTML='<div class="working"><i class="spin"></i>Looking up '+esc(code)+'…</div>';
+        try{
+          const r=await fetch('./api/barcode/'+encodeURIComponent(code),{signal:AbortSignal.timeout(15000)});
+          const j=await r.json();
+          if(!r.ok) throw new Error(j.error||'Lookup failed');
+          if(!j.found){
+            $('#bcOut').innerHTML='<div class="warn">No nutrition on file for '+esc(code)+'. '
+              + 'Add it once from the label and it is yours forever.</div>'
+              + '<button class="btn wide ghost" id="bcNew" style="margin-top:11px">Add it from the label</button>';
+            $('#bcNew').addEventListener('click',()=>newFoodSheet(meal,{name:'',barcode:code}));
+            return;
+          }
+          const food={id:'bc_'+j.code,name:j.name,kcal:j.kcal,p:j.p,c:j.c,f:j.f,s:j.serving||100};
+          if(!S.foods.some(f=>f.id===food.id)){ S.foods.unshift(food); save(); }
+          portionSheet(food, meal);
+          toast('Saved to your foods');
+        }catch(err){
+          $('#bcOut').innerHTML='<div class="errbox">'+esc(err.message)+'</div>';
+        }
+      };
+      $('#bcGo').addEventListener('click',()=>{
+        const v=$('#bcNum').value.replace(/\D/g,'');
+        if(v.length<6){ $('#bcNum').focus(); return; }
+        lookup(v);
+      });
+      $('#bcNum').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#bcGo').click(); });
+
+      if(!canScan){ $('#bcNum').focus(); return; }
+      startScan(lookup);
+    }
+  );
+}
+async function startScan(onCode){
+  const vid=$('#bcVid'), hint=$('#bcHint');
+  let stream=null, timer=null, stopped=false;
+  camStop=()=>{
+    stopped=true;
+    if(timer) clearInterval(timer);
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+  };
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+    if(stopped){ stream.getTracks().forEach(t=>t.stop()); return; }
+    vid.srcObject=stream;
+    await vid.play();
+  }catch(e){
+    const cam=$('#cam');
+    if(cam) cam.outerHTML='<div class="warn">Could not open the camera'
+      + (e && e.name==='NotAllowedError' ? ' — permission was declined' : '')
+      + '. Type the number below instead.</div>';
+    camStop=null;
+    const n=$('#bcNum'); if(n) n.focus();
+    return;
+  }
+  let detector;
+  try{
+    const want=['ean_13','ean_8','upc_a','upc_e','code_128'];
+    const have=await window.BarcodeDetector.getSupportedFormats();
+    const formats=want.filter(f=>have.includes(f));
+    detector=new window.BarcodeDetector(formats.length?{formats}:undefined);
+  }catch(e){
+    if(hint) hint.textContent='Scanning not supported here — type the number below';
+    return;
+  }
+  timer=setInterval(async ()=>{
+    if(stopped || vid.readyState<2) return;
+    let hits=[];
+    try{ hits=await detector.detect(vid); }catch(e){ return; }
+    const code=(hits.find(h=>/^\d{6,}$/.test(h.rawValue))||{}).rawValue;
+    if(code){
+      clearInterval(timer);
+      if(hint) hint.textContent='Found '+code;
+      const inp=$('#bcNum'); if(inp) inp.value=code;
+      onCode(code);
+    }
+  },350);
 }
 function guessMeal(){
   const h=new Date().getHours();
@@ -1087,10 +1402,12 @@ function portionSheet(f, meal){
     }
   );
 }
-function newFoodSheet(meal){
+function newFoodSheet(meal, prefill){
+  prefill = prefill || {};
   openSheet('New food',
     '<div class="stack">'
-    + '<div class="field"><label for="nfN">Name</label><input type="text" id="nfN" placeholder="e.g. Mum&#39;s shakshuka"></div>'
+    + (prefill.barcode ? '<p class="hint">Barcode '+esc(prefill.barcode)+' — it will be remembered, so a rescan finds it instantly.</p>' : '')
+    + '<div class="field"><label for="nfN">Name</label><input type="text" id="nfN" value="'+esc(prefill.name||'')+'" placeholder="e.g. Mum&#39;s shakshuka"></div>'
     + '<p class="hint">Enter the numbers per 100 g — that is what is printed on almost every label.</p>'
     + '<div class="grid2">'
     + '<div class="field"><label for="nfK">Calories</label><input type="number" id="nfK" min="0" inputmode="numeric"></div>'
@@ -1104,8 +1421,10 @@ function newFoodSheet(meal){
       $('#nfN').focus();
       $('#nfSave').addEventListener('click',()=>{
         const name=$('#nfN').value.trim(); if(!name){ $('#nfN').focus(); return; }
-        const f={id:uid(),name:name,kcal:Number($('#nfK').value)||0,p:Number($('#nfP').value)||0,
+        const f={id:prefill.barcode?('bc_'+prefill.barcode):uid(),name:name,
+                 kcal:Number($('#nfK').value)||0,p:Number($('#nfP').value)||0,
                  c:Number($('#nfC').value)||0,f:Number($('#nfF').value)||0,s:Number($('#nfS').value)||100};
+        S.foods=S.foods.filter(x=>x.id!==f.id);
         S.foods.unshift(f); save(); portionSheet(f, meal);
       });
     }
@@ -1226,6 +1545,8 @@ $('#sheet').addEventListener('click',e=>{
   if(seg){ $$('#mealSeg button').forEach(b=>b.setAttribute('aria-pressed',String(b===seg))); return; }
   if(e.target.closest('#newFood')){ newFoodSheet(selMeal()); return; }
   if(e.target.closest('#quickKcal')){ quickSheet(selMeal()); return; }
+  if(e.target.closest('#goDescribe')){ describeSheet(selMeal()); return; }
+  if(e.target.closest('#goBarcode')){ barcodeSheet(selMeal()); return; }
   const fd=e.target.closest('[data-fdel]');
   if(fd){ S.foods=S.foods.filter(x=>x.id!==fd.dataset.fdel); save(); foodsSheet(); return; }
 });
@@ -1343,5 +1664,6 @@ $('#foodsBtn').addEventListener('click',foodsSheet);
 /* --------------------------------------------------------------- start */
 if(S.targets.auto) S.targets=Object.assign({auto:true},autoTargets(S.profile));
 show('today');
+probeBackend();
 })();
 </script>
