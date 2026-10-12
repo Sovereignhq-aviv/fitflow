@@ -5,8 +5,13 @@
 <style>
 /* ---- tokens: light is the base set, dark redefines only the variables ---- */
 :root{
+  /* one radius and type scale, so nothing gets sized by eye */
+  --r-sm:9px; --r-md:12px; --r-lg:14px;
+  --t-micro:11px; --t-small:12.5px; --t-body:14px;
+  --tap:40px;                 /* smallest comfortable one-handed target */
+
   --bg:#F4F5F7; --surface:#FFFFFF; --surface-2:#EAEDF1; --line:#DCE0E6; --line-soft:#E9ECF0;
-  --ink:#15181D; --ink-2:#4A5462; --ink-3:#79838F;
+  --ink:#15181D; --ink-2:#4A5462; --ink-3:#5F6873;
   --pro:#C0392B; --carb:#9C6B10; --fat:#2F62A8;
   --pro-soft:#F6E2DF; --carb-soft:#F6EBD6; --fat-soft:#DDE7F5;
   --ok:#1B7F53; --ok-soft:#DDF0E6; --warn:#9C6B10; --bad:#C0392B;
@@ -18,7 +23,7 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --bg:#131519; --surface:#1B1E24; --surface-2:#22262E; --line:#2E343E; --line-soft:#23282F;
-    --ink:#EDEFF2; --ink-2:#A8B1BD; --ink-3:#79838F;
+    --ink:#EDEFF2; --ink-2:#A8B1BD; --ink-3:#8A94A1;
     --pro:#E8635A; --carb:#E0A93E; --fat:#6E9FE0;
     --pro-soft:#37231F; --carb-soft:#332913; --fat-soft:#1D2A3D;
     --ok:#3DBB85; --ok-soft:#163024; --warn:#E0A93E; --bad:#E8635A;
@@ -30,7 +35,7 @@
 }
 :root[data-theme="dark"]{
   --bg:#131519; --surface:#1B1E24; --surface-2:#22262E; --line:#2E343E; --line-soft:#23282F;
-  --ink:#EDEFF2; --ink-2:#A8B1BD; --ink-3:#79838F;
+  --ink:#EDEFF2; --ink-2:#A8B1BD; --ink-3:#8A94A1;
   --pro:#E8635A; --carb:#E0A93E; --fat:#6E9FE0;
   --pro-soft:#37231F; --carb-soft:#332913; --fat-soft:#1D2A3D;
   --ok:#3DBB85; --ok-soft:#163024; --warn:#E0A93E; --bad:#E8635A;
@@ -135,19 +140,23 @@ svg{flex:none}
 .row .name{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .sub{font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;margin-top:1px}
 .row .kcal{font-family:Oswald,sans-serif;font-weight:500;font-size:16px;font-variant-numeric:tabular-nums}
-.row .x{color:var(--ink-3);width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
+.row .x{color:var(--ink-3);width:var(--tap);height:var(--tap);border-radius:var(--r-sm);display:grid;place-items:center;flex:none;margin:-7px -6px -7px 0}
 .row .x:hover{background:var(--surface-2);color:var(--bad)}
 .row .x .ic{width:14px;height:14px;stroke-width:2}
 
-.empty{border:1px dashed var(--line);border-radius:12px;padding:22px 16px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.6}
+.empty{border:1px dashed var(--line);border-radius:var(--r-md);padding:22px 16px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.6}
+.meals-empty{margin-top:18px}
 
 /* ---- buttons + forms ---- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 16px;border-radius:11px;background:var(--btn);color:var(--btn-ink);font-weight:600;font-size:14px;border:1px solid transparent}
 .btn:hover{opacity:.87}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:disabled:hover{opacity:.45}
 .btn .ic{width:15px;height:15px;stroke-width:2}
 .btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line)}
 .btn.ghost:hover{opacity:1;border-color:var(--ink-3)}
 .btn.wide{width:100%}
+.primary-action{margin-top:16px;padding-top:13px;padding-bottom:13px}
 .btn.sm{padding:8px 12px;font-size:13px;border-radius:9px}
 .btn.danger{background:var(--surface);color:var(--bad);border-color:var(--line)}
 .btnrow{display:flex;gap:9px;flex-wrap:wrap}
@@ -199,7 +208,9 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink-3)}
 .ex-h{display:flex;align-items:center;gap:8px;padding:12px 13px 8px}
 .ex-h h3{font-size:14.5px;font-weight:600;margin-right:auto}
 .ex-last{padding:0 13px 10px;font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
-.setrow{display:grid;grid-template-columns:24px 1fr 1fr 32px;gap:8px;align-items:center;padding:7px 13px;border-top:1px solid var(--line-soft)}
+.setrow{display:grid;grid-template-columns:24px 1fr 1fr var(--tap);gap:8px;align-items:center;padding:5px 9px 5px 13px;border-top:1px solid var(--line-soft)}
+.setrow .x{width:var(--tap);height:var(--tap);border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-3)}
+.setrow .x:hover{background:var(--surface-2);color:var(--bad)}
 .setrow .n{font-family:Oswald,sans-serif;font-size:12px;color:var(--ink-3);text-align:center}
 .setrow input{padding:7px 9px;font-size:14px;text-align:center;font-variant-numeric:tabular-nums}
 .ex-f{display:flex;gap:8px;padding:10px 13px;border-top:1px solid var(--line-soft);align-items:center}
@@ -223,24 +234,35 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink-3)}
 .goalbar{height:9px;border-radius:99px;background:var(--track);overflow:hidden;margin:13px 0 9px}
 .goalbar i{display:block;height:100%;background:var(--ink);border-radius:99px;transition:width .6s cubic-bezier(.2,.8,.25,1)}
 /* ---- smart entry: describe + barcode ---- */
-.bigrow{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.bigrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px}
 .big{
   display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:13px;
-  border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left
+  border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);text-align:left
 }
 .big:hover{border-color:var(--ink-3)}
-.big:disabled{opacity:.45;cursor:not-allowed}
 .big .ic{width:19px;height:19px;stroke-width:1.8;color:var(--ink-2)}
-.big b{font-size:13.5px;font-weight:600;line-height:1.25}
-.big span{font-size:11px;color:var(--ink-3);line-height:1.35}
-textarea#dq{min-height:88px;resize:vertical;line-height:1.5}
+.big b{font-size:var(--t-body);font-weight:600;line-height:1.25}
+.big span{font-size:var(--t-micro);color:var(--ink-3);line-height:1.35}
+
+textarea#dq{min-height:84px;resize:vertical;line-height:1.5}
+.photo{
+  display:flex;align-items:center;gap:10px;padding:12px 13px;cursor:pointer;min-height:var(--tap);
+  border:1px dashed var(--line);border-radius:var(--r-md);background:var(--surface);
+  font-size:var(--t-small);color:var(--ink-2)
+}
+.photo:hover{border-color:var(--ink-3);color:var(--ink)}
+.photo .ic{width:18px;height:18px;color:var(--ink-3)}
+.photo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.photo.has{border-style:solid;border-color:var(--ok);color:var(--ink)}
+.photo.has .ic{color:var(--ok)}
 
 .spin{
   width:15px;height:15px;border-radius:50%;flex:none;
   border:2px solid var(--track);border-top-color:var(--ink);animation:sp .7s linear infinite
 }
 @keyframes sp{to{transform:rotate(360deg)}}
-.working{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);padding:13px 0}
+.working{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);padding:13px 0}
+.working .btn{margin-left:auto}
 
 .pitem{display:grid;grid-template-columns:1fr 78px 30px;gap:9px;align-items:start;padding:11px 13px;border-bottom:1px solid var(--line-soft)}
 .pitem:last-of-type{border-bottom:0}
@@ -360,11 +382,13 @@ textarea#dq{min-height:88px;resize:vertical;line-height:1.5}
       <div class="readout" id="dayReadout"></div>
     </div>
 
-    <div id="meals"></div>
+    <!-- logging food is the whole point of this screen, so the action sits
+         where it is reachable on arrival rather than below the day's list -->
+    <button class="btn wide primary-action" id="addFoodBtn">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add food
+    </button>
 
-    <div class="sec">
-      <button class="btn wide" id="addFoodBtn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add food</button>
-    </div>
+    <div id="meals"></div>
 
     <div class="sec">
       <div class="sec-head"><span class="eyebrow">Body weight</span></div>
@@ -745,35 +769,146 @@ let view = 'today';
 let dDate = today();      // Today screen date
 let gDate = today();      // Gym screen date
 
-/* ---------------------------------------------------------------- backend */
-/* Barcode lookup and plain-words entry both need to reach the network, which a
-   bare file:// page and the claude.ai artifact host cannot do. Probe once and
-   hide those two buttons when they are not available, rather than failing later. */
-let BACKEND = {checked:false, ai:false, barcode:false, tokenRequired:false};
+/* -------------------------------------------------------------- ai routes */
+/* Describing a meal can reach Claude two ways, and the app picks whichever
+   this copy actually has:
+     "sample" — published on claude.ai, which lends the page Claude directly.
+                Nothing to set up and photos work.
+     "server" — running from its own folder, which can hold an API key (in the
+                environment, or one typed into Settings and sent per request).
+   Barcode lookup needs the server either way: the claude.ai page is walled off
+   from the rest of the internet. */
+const AI = {checked:false, route:null, sample:null, photos:false, barcode:false, tokenRequired:false, acceptsKey:false};
+
 const tokenGet = () => { try{ return localStorage.getItem('fitflow.token')||''; }catch(e){ return ''; } };
 const tokenSet = v => { try{ v ? localStorage.setItem('fitflow.token',v) : localStorage.removeItem('fitflow.token'); }catch(e){} };
+const keyGet   = () => { try{ return localStorage.getItem('fitflow.apikey')||''; }catch(e){ return ''; } };
+const keySet   = v => { try{ v ? localStorage.setItem('fitflow.apikey',v) : localStorage.removeItem('fitflow.apikey'); }catch(e){} };
 
-async function probeBackend(){
-  try{
-    const r = await fetch('./api/health', {signal:AbortSignal.timeout(4500)});
-    if(!r.ok) throw new Error('bad status');
-    const j = await r.json();
-    BACKEND = {checked:true, ai:!!j.ai, barcode:!!j.barcode, tokenRequired:!!j.tokenRequired};
-  }catch(e){
-    BACKEND = {checked:true, ai:false, barcode:false, tokenRequired:false};
-  }
+/* Either check can take a few seconds, so neither waits on the other and the
+   screens update as each answers — opening Add food early still fills in. */
+function aiSettled(){
   if(view==='you') renderSmart();
+  const sheetOpen = $('#sheet').classList.contains('on');
+  const inAddFood = sheetOpen && $('#fq');          // the search box marks that sheet
+  if(inAddFood && !$('.bigrow') && (aiReady() || AI.barcode)){
+    const typed = $('#fq').value, meal = selMeal();
+    foodSheet();
+    $('#fq').value = typed;
+    if(typed) drawFoodList(typed);
+    $$('#mealSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===meal)));
+  }
 }
 
-async function apiPost(path, body){
+function probeAI(){
+  const sample = (window.claude && typeof window.claude.use==='function')
+    ? window.claude.use('sample').catch(()=>null) : Promise.resolve(null);
+
+  const server = fetch('./api/health', {signal:AbortSignal.timeout(4500)})
+    .then(r => r.ok ? r.json() : null).catch(()=>null);
+
+  const done = Promise.all([
+    sample.then(async smp=>{
+      if(!smp) return;
+      AI.sample = smp;
+      AI.route = 'sample';                   // preferred: nothing to set up
+      const lim = await smp.limits().catch(()=>null);
+      AI.photos = !!(lim && lim.images);
+      aiSettled();
+    }),
+    server.then(srv=>{
+      if(!srv) return;
+      AI.barcode = !!srv.barcode;
+      AI.tokenRequired = !!srv.tokenRequired;
+      AI.acceptsKey = !!srv.acceptsKey;
+      if(!AI.route && (srv.ai || (srv.acceptsKey && keyGet()))){
+        AI.route = 'server';
+        AI.photos = false;                   // the server path takes words only
+      }
+      aiSettled();
+    })
+  ]);
+
+  return done.then(()=>{ AI.checked = true; aiSettled(); });
+}
+const aiReady = () => AI.route === 'sample' || AI.route === 'server';
+
+/* Viewer-facing copy for every way a Claude call can fail. Each one names what
+   went wrong and what to do about it; none of them invite an automatic retry. */
+const AI_ERRORS = {
+  not_granted:   'You chose not to let this page use Claude. Reload the page to be asked again.',
+  sampling_disabled: 'Claude is not available on this account.',
+  not_declared:  'This copy of the app cannot use Claude.',
+  capability_disabled: 'Claude is not available in this window.',
+  capability_removed:  'This app needs a newer Claude app to do that.',
+  rate_limited:  'Claude is busy or you have hit your usage limit. Wait a minute, then try again.',
+  session_expired: 'Your Claude session expired. Reload the page and sign in again.',
+  refused:       'Claude would not answer that one. Try wording the food differently.',
+  empty_completion: 'Nothing came back. Try describing it more simply.',
+  invalid_json:  'That answer came back garbled. Try again, or describe one meal at a time.',
+  prompt_too_large: 'That is too much at once. Describe one meal at a time.',
+  image_rejected: 'That photo was not accepted. Try a smaller or clearer one.',
+  images_unavailable: 'Photos are not available here. Type what you ate instead.',
+  invalid_request: 'Something in that request was wrong. Try again.',
+  upstream_error: 'Could not reach Claude. Check your connection and try again.'
+};
+// A route that will never work again this page-load — stop offering it.
+const AI_DEAD = ['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'];
+
+const FOOD_PROMPT = (text, meal, photo) => `You turn a description of a meal into food entries for a food log.
+
+${photo ? 'The photo shows either the food itself or a nutrition label. Read it, and use the note below as extra detail.\n' : ''}Rules:
+- One entry per distinct food. "Toast with butter" is two entries.
+- Always give a weight in grams, even for a count or a vague amount. Realistic portions: 1 large egg 55 g, 1 slice sandwich bread 36 g, 1 medium banana 118 g, 1 tsp butter or oil 5 g, 1 tbsp 15 g, 1 mug of coffee 240 g, 1 restaurant chicken breast 180 g.
+- kcal and macros are for the weight you give, NOT per 100 g.
+- Cooked weights for cooked food; dry weights for things measured dry.
+- "assumption" says the portion you assumed, e.g. "2 large eggs at 55 g each". Empty string when an exact weight was given.
+- Anything you cannot read as a food goes in "unclear" instead of being guessed at.
+- "meal" comes from the text if it says so, otherwise use ${meal}.
+
+Reply with only this JSON:
+{"items":[{"name":"Scrambled eggs","grams":110,"kcal":170,"protein_g":12.4,"carbs_g":1.1,"fat_g":12.8,"assumption":"2 large eggs at 55 g each"}],"meal":"${meal}","unclear":[]}
+
+Eaten:
+${text || '(see the photo)'}`;
+
+const normaliseItems = out => ({
+  items: (Array.isArray(out && out.items) ? out.items : []).map(i=>({
+    name: String(i.name||'Food'),
+    g: Math.max(0, Math.round((Number(i.grams)||0)*10)/10),
+    kcal: Math.max(0, Math.round(Number(i.kcal)||0)),
+    p: Math.max(0, Math.round((Number(i.protein_g)||0)*10)/10),
+    c: Math.max(0, Math.round((Number(i.carbs_g)||0)*10)/10),
+    f: Math.max(0, Math.round((Number(i.fat_g)||0)*10)/10),
+    assumption: String(i.assumption||'')
+  })).filter(i=>i.kcal>0 || i.p>0 || i.c>0 || i.f>0 || i.g>0),
+  meal: MEALS.includes(out && out.meal) ? out.meal : null,
+  unclear: Array.isArray(out && out.unclear) ? out.unclear.map(String) : []
+});
+
+/* Both routes answer in the same shape, so the sheet never branches on route. */
+async function aiParse(text, meal, photo, signal, onProgress){
+  if(AI.route==='sample'){
+    const out = await AI.sample.json(FOOD_PROMPT(text, meal, !!photo), {
+      images: photo ? [photo] : undefined,
+      modelTier: 'default',
+      signal: signal,
+      onText: onProgress ? ()=>onProgress('writing') : undefined
+    });
+    return normaliseItems(out);
+  }
   const headers = {'content-type':'application/json'};
-  const tk = tokenGet();
-  if(tk) headers['x-fitflow-token'] = tk;
-  const r = await fetch(path, {method:'POST', headers, body:JSON.stringify(body), signal:AbortSignal.timeout(90000)});
-  let j = null;
-  try{ j = await r.json(); }catch(e){}
-  if(!r.ok) throw new Error((j && j.error) || ('Request failed ('+r.status+')'));
-  return j;
+  const tk = tokenGet(); if(tk) headers['x-fitflow-token'] = tk;
+  const key = keyGet();
+  const r = await fetch('./api/parse', {
+    method:'POST', headers, signal,
+    body: JSON.stringify({text, meal, key: key || undefined})
+  });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if(!r.ok){ const err = new Error((j&&j.error)||('Request failed ('+r.status+')')); err.code='server'; throw err; }
+  return normaliseItems({items:(j.items||[]).map(i=>({
+    name:i.name, grams:i.g, kcal:i.kcal, protein_g:i.p, carbs_g:i.c, fat_g:i.f, assumption:i.assumption
+  })), meal:j.meal, unclear:j.unclear});
 }
 
 /* =========================================================== TODAY VIEW */
@@ -797,15 +932,18 @@ function renderToday(){
 
   const ro = $('#dayReadout');
   const band = g.kcal*0.08;
+  // Being under target at midday is the normal state of a day in progress, so
+  // it reads as neutral; only going over is worth a colour. The dial already
+  // carries the running total, so nothing here repeats it.
   let pill;
   if(t.kcal===0) pill = '<span class="pill mute">Nothing logged yet</span>';
+  else if(left < -band) pill = '<span class="pill bad">'+r0(-left)+' kcal over target</span>';
   else if(Math.abs(left) <= band) pill = '<span class="pill ok">On target</span>';
-  else if(left > 0) pill = '<span class="pill warn">'+r0(left)+' kcal under</span>';
-  else pill = '<span class="pill bad">'+r0(-left)+' kcal over</span>';
-  const pPill = t.p >= g.p ? '<span class="pill ok">Protein hit</span>'
-              : (t.kcal>0 ? '<span class="pill mute">'+r0(g.p-t.p)+' g protein to go</span>' : '');
-  ro.innerHTML = pill + pPill + '<span style="margin-left:auto;font-size:12px;color:var(--ink-3)" class="num">'
-    + r0(t.kcal) + ' / ' + r0(g.kcal) + ' kcal</span>';
+  else pill = '<span class="pill mute">'+r0(left)+' kcal still to eat</span>';
+  const pPill = t.kcal===0 ? ''
+    : t.p >= g.p ? '<span class="pill ok">Protein hit</span>'
+    : '<span class="pill mute">'+r0(g.p-t.p)+' g protein to go</span>';
+  ro.innerHTML = pill + pPill;
 
   // meals
   const items = day(dDate).items;
@@ -823,7 +961,7 @@ function renderToday(){
           + '<svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'
         )).join('')
       + '</div></div>';
-  }).join('') || '<div class="empty" style="margin-top:18px">No food logged for this day.<br>Tap <b>Add food</b> to start.</div>';
+  }).join('') || '<div class="empty meals-empty">Nothing logged for this day yet.<br>Use <b>Add food</b> just above.</div>';
 
   const w = day(dDate).w;
   $('#wIn').value = w==null ? '' : w;
@@ -1088,36 +1226,48 @@ function renderYou(){
 function renderSmart(){
   const el=$('#smartCard');
   if(!el) return;
-  if(!BACKEND.checked){
-    el.innerHTML='<div class="working"><i class="spin"></i>Checking what is available…</div>';
+  if(!AI.checked){
+    el.innerHTML='<div class="working"><i class="spin"></i>Checking what this copy can do…</div>';
     return;
   }
   const row=(on,label,detail)=>'<div class="kv"><span>'+label+'</span>'
     + '<b><span class="pill '+(on?'ok':'mute')+'">'+(on?'On':'Off')+'</span></b></div>'
-    + (detail?'<p class="hint" style="margin:-2px 0 8px">'+detail+'</p>':'');
+    + (detail?'<p class="hint" style="margin:-4px 0 10px">'+detail+'</p>':'');
 
-  if(!BACKEND.barcode && !BACKEND.ai){
-    el.innerHTML = '<p class="note">Barcode scanning and plain-words entry both need to reach the internet, '
-      + 'which this copy of the app cannot do — it is running as a plain file or on the claude.ai page, where '
-      + 'outside connections are blocked.</p>'
-      + '<p class="note" style="margin-top:10px">To turn them on, run the app from its own folder:<br>'
-      + '<b>node server.mjs</b> — then open <b>http://localhost:8744</b>. '
-      + 'Set <b>ANTHROPIC_API_KEY</b> first for plain-words entry.</p>'
-      + '<p class="hint" style="margin-top:10px">Everything else — searching, logging, the gym log, progress — works exactly the same here.</p>';
-    return;
-  }
+  const how = AI.route==='sample'
+    ? 'Claude comes with the page here — nothing to set up, and it runs on your own Claude account.'
+    : AI.route==='server'
+      ? 'Handled by the server this page came from.'
+      : '';
+
   el.innerHTML =
-    row(BACKEND.barcode,'Barcode scanning','Nutrition comes from the Open Food Facts database. Scanned products are saved to your foods, so a rescan works offline.')
-    + row(BACKEND.ai,'Plain-words entry', BACKEND.ai
-        ? 'Describe a meal and Claude works out the weights and macros. You see and can edit every number before it is logged.'
-        : 'Set <b>ANTHROPIC_API_KEY</b> on the server and restart it.')
-    + (BACKEND.tokenRequired
-        ? '<div class="field" style="margin-top:12px"><label for="tkIn">Access code</label>'
-          + '<input type="text" id="tkIn" autocomplete="off" value="'+esc(tokenGet())+'" placeholder="the FITFLOW_TOKEN you set">'
-          + '<p class="hint">The server asks for this before spending on plain-words entry. Stored on this device only — it is not in your backups.</p></div>'
+    row(aiReady(), AI.photos ? 'Describe or photograph food' : 'Describe food in words', aiReady()
+        ? how + ' You see every weight it assumed and can change them before anything is logged.'
+        : 'Not available in this copy. Either open the app from its claude.ai link, or run it from its folder with <b>node server.mjs</b>.')
+    + row(AI.barcode,'Barcode scanning', AI.barcode
+        ? 'Nutrition comes from Open Food Facts. Scanned products are saved into your foods, so a rescan works offline.'
+        : 'Needs the app running from its own folder — the claude.ai page is walled off from other sites.')
+    + (AI.acceptsKey
+        ? '<div class="field" style="margin-top:14px"><label for="keyIn">Your Anthropic API key</label>'
+          + '<input type="password" id="keyIn" autocomplete="off" spellcheck="false" value="'+esc(keyGet())+'" placeholder="sk-ant-…">'
+          + '<p class="hint">Optional. Paste one here and this device uses it instead of the server’s own key. '
+          + 'Kept on this device, sent only to your own server, and left out of backups.</p></div>'
+        : '')
+    + (AI.tokenRequired
+        ? '<div class="field" style="margin-top:14px"><label for="tkIn">Access code</label>'
+          + '<input type="password" id="tkIn" autocomplete="off" value="'+esc(tokenGet())+'" placeholder="the FITFLOW_TOKEN you set">'
+          + '<p class="hint">Your server asks for this before it will spend anything. Kept on this device and left out of backups.</p></div>'
         : '');
+
   const tk=$('#tkIn');
   if(tk) tk.addEventListener('change',()=>{ tokenSet(tk.value.trim()); toast('Access code saved'); });
+  const kk=$('#keyIn');
+  if(kk) kk.addEventListener('change',()=>{
+    const v=kk.value.trim();
+    if(v && !/^sk-ant-/.test(v)){ toast('That does not look like an Anthropic key'); return; }
+    keySet(v); toast(v?'API key saved':'API key removed');
+    probeAI();
+  });
 }
 
 /* =============================================================== SHEETS */
@@ -1131,6 +1281,7 @@ function openSheet(title, html, after){
 }
 function closeSheet(){
   stopCam();
+  if(aiCtl){ aiCtl.abort(); aiCtl=null; }
   $('#sheet').classList.remove('on');
   $('#sheetBody').innerHTML='';
   document.body.style.overflow='';
@@ -1138,14 +1289,18 @@ function closeSheet(){
 
 /* ---- add food ---- */
 function foodSheet(){
-  const smart = (BACKEND.ai || BACKEND.barcode)
+  const smart = (aiReady() || AI.barcode)
     ? '<div class="bigrow">'
-      + '<button class="big" id="goDescribe"'+(BACKEND.ai?'':' disabled title="Needs the server running with an API key"')+'>'
-      + '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h11M4 17.5h7"/><path d="M17.5 16.5l1.6 3.2 3.2 1.6-3.2 1.6"/></svg>'
-      + '<b>Describe it</b><span>Type it in plain words</span></button>'
-      + '<button class="big" id="goBarcode"'+(BACKEND.barcode?'':' disabled')+'>'
-      + '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6v12M7.5 6v12M11 6v12M14 6v9M17 6v12M20 6v12"/></svg>'
-      + '<b>Scan barcode</b><span>Point at the packet</span></button>'
+      + (aiReady()
+          ? '<button class="big" id="goDescribe">'
+            + '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h10M4 17.5h6"/><path d="M19 14.2l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/></svg>'
+            + '<b>Describe it</b><span>' + (AI.photos ? 'Say it or photograph it' : 'Say it in plain words') + '</span></button>'
+          : '')
+      + (AI.barcode
+          ? '<button class="big" id="goBarcode">'
+            + '<svg class="ic" viewBox="0 0 24 24"><path d="M4 6v12M7.5 6v12M11 6v12M14 6v9M17 6v12M20 6v12"/></svg>'
+            + '<b>Scan barcode</b><span>Point at the packet</span></button>'
+          : '')
       + '</div>'
     : '';
   openSheet('Add food',
@@ -1161,30 +1316,58 @@ function foodSheet(){
   );
 }
 
-/* ---- describe it in plain words ---- */
-let parsed=[];
+/* ---- describe it in plain words, or photograph it ---- */
+let parsed=[], aiCtl=null, aiPhoto=null;
 function describeSheet(meal){
-  parsed=[];
-  openSheet('Describe what you ate',
+  parsed=[]; aiCtl=null; aiPhoto=null;
+  openSheet(AI.photos ? 'Describe or photograph it' : 'Describe what you ate',
     '<div class="stack">'
-    + '<div class="field"><textarea id="dq" placeholder="two scrambled eggs, a slice of toast with butter, and a flat white"></textarea>'
-    + '<p class="hint">Counts and rough amounts are fine — it works out the weights and tells you what it assumed.</p></div>'
+    + '<div class="field"><textarea id="dq" rows="3" placeholder="two scrambled eggs, a slice of toast with butter, and a flat white"></textarea>'
+    + '<p class="hint">Counts and rough amounts are fine. You see every weight it assumed and can change them before anything is logged.</p></div>'
+    + (AI.photos
+        ? '<label class="photo" id="photoPick" tabindex="0">'
+          + '<svg class="ic" viewBox="0 0 24 24"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.7l1.1-1.8h6.4L15.8 6h2.7A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"/><circle cx="12" cy="12" r="3.4"/></svg>'
+          + '<span id="photoLabel">Add a photo of the food or its label</span>'
+          + '<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" id="dphoto" hidden></label>'
+        : '')
     + '<button class="btn wide" id="dGo">Work out the macros</button>'
-    + '<div id="dOut"></div></div>',
+    + '<div id="dOut" aria-live="polite"></div></div>',
     ()=>{
       $('#dq').focus();
+
+      const pick = $('#dphoto');
+      if(pick) pick.addEventListener('change',()=>{
+        aiPhoto = pick.files && pick.files[0] ? pick.files[0] : null;
+        $('#photoPick').classList.toggle('has', !!aiPhoto);
+        $('#photoLabel').textContent = aiPhoto ? aiPhoto.name : 'Add a photo of the food or its label';
+      });
+
       const run = async ()=>{
         const text=$('#dq').value.trim();
-        if(!text){ $('#dq').focus(); return; }
+        if(!text && !aiPhoto){ $('#dq').focus(); return; }
+        aiCtl = new AbortController();
         $('#dGo').disabled=true;
-        $('#dOut').innerHTML='<div class="working"><i class="spin"></i>Reading that…</div>';
+        $('#dOut').innerHTML='<div class="working"><i class="spin"></i>'
+          + '<span id="dStage">Thinking it through…</span>'
+          + '<button class="btn ghost sm" id="dStop" style="margin-left:auto">Stop</button></div>';
+        $('#dStop').addEventListener('click',()=>{ if(aiCtl) aiCtl.abort(); });
         try{
-          const res=await apiPost('./api/parse',{text,meal});
+          const res = await aiParse(text, meal, aiPhoto, aiCtl.signal, stage=>{
+            const el=$('#dStage'); if(el && stage==='writing') el.textContent='Working out the weights…';
+          });
+          if(!res.items.length){
+            $('#dOut').innerHTML='<div class="warn">Nothing in there read as a food. Try naming what you ate.</div>';
+            return;
+          }
           parsed=res.items.map(i=>Object.assign({},i,{g0:i.g||1,kcal0:i.kcal,p0:i.p,c0:i.c,f0:i.f}));
-          drawParsed(res.meal||meal, res.unclear||[]);
+          drawParsed(res.meal||meal, res.unclear);
         }catch(err){
-          $('#dOut').innerHTML='<div class="errbox">'+esc(err.message)+'</div>';
-        }finally{ $('#dGo').disabled=false; }
+          if(err && err.code==='cancelled'){ $('#dOut').innerHTML=''; return; }
+          const code = err && err.code;
+          const msg = (code && AI_ERRORS[code]) || (err && err.message) || AI_ERRORS.upstream_error;
+          $('#dOut').innerHTML='<div class="errbox">'+esc(msg)+'</div>';
+          if(AI_DEAD.includes(code)){ AI.route=null; AI.photos=false; }
+        }finally{ aiCtl=null; const b=$('#dGo'); if(b) b.disabled=false; }
       };
       $('#dGo').addEventListener('click',run);
       $('#dq').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)) run(); });
@@ -1664,6 +1847,6 @@ $('#foodsBtn').addEventListener('click',foodsSheet);
 /* --------------------------------------------------------------- start */
 if(S.targets.auto) S.targets=Object.assign({auto:true},autoTargets(S.profile));
 show('today');
-probeBackend();
+probeAI();
 })();
 </script>

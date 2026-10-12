@@ -114,8 +114,8 @@ Rules:
 - Pick "meal" from the text if it says so ("for breakfast", "dinner was"); otherwise use the default meal given by the user message.
 - Zero-calorie items (black coffee, water, diet drinks) still get an entry with the right near-zero numbers.`;
 
-async function parseFood(text, defaultMeal) {
-  const response = await anthropic.messages.parse({
+async function parseFood(client, text, defaultMeal) {
+  const response = await client.messages.parse({
     model: 'claude-opus-5',
     max_tokens: 4096,
     system: PARSE_SYSTEM,
@@ -165,6 +165,7 @@ async function api(req, res, url) {
       barcode: true,
       ai: HAS_KEY,
       tokenRequired: !!TOKEN,
+      acceptsKey: true,     // a key typed into the app is used for that request
     });
   }
 
@@ -176,9 +177,6 @@ async function api(req, res, url) {
 
   if (path === '/api/parse') {
     if (req.method !== 'POST') return json(res, 405, { error: 'POST only' });
-    if (!anthropic) {
-      return json(res, 503, { error: 'Plain-words entry needs ANTHROPIC_API_KEY set on the server.' });
-    }
     // This endpoint spends money, so it is never open to the world unguarded.
     if (TOKEN) {
       if (req.headers['x-fitflow-token'] !== TOKEN) return json(res, 401, { error: 'Wrong or missing access code.' });
@@ -190,11 +188,21 @@ async function api(req, res, url) {
     try { body = JSON.parse(await readBody(req)); }
     catch { return json(res, 400, { error: 'Bad request body.' }); }
 
+    // A key typed into the app wins over the server's own, and is never logged
+    // or kept — it lives only for this request.
+    const typedKey = typeof body.key === 'string' && body.key.startsWith('sk-ant-') ? body.key.trim() : '';
+    const client = typedKey ? new Anthropic({ apiKey: typedKey }) : anthropic;
+    if (!client) {
+      return json(res, 503, {
+        error: 'No API key. Paste one under You → Smart entry, or set ANTHROPIC_API_KEY on the server.',
+      });
+    }
+
     const text = String(body.text || '').trim().slice(0, 2000);
     if (!text) return json(res, 400, { error: 'Describe what you ate first.' });
     const meal = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'].includes(body.meal) ? body.meal : 'Snacks';
 
-    try { return json(res, 200, await parseFood(text, meal)); }
+    try { return json(res, 200, await parseFood(client, text, meal)); }
     catch (e) {
       const status = e.status || (e instanceof Anthropic.AuthenticationError ? 401
         : e instanceof Anthropic.RateLimitError ? 429
@@ -240,6 +248,6 @@ createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`FitFlow on http://localhost:${PORT}`);
   console.log(`  barcode lookup : on`);
-  console.log(`  plain words    : ${HAS_KEY ? 'on (claude-opus-5)' : 'off — set ANTHROPIC_API_KEY'}`);
+  console.log(`  plain words    : ${HAS_KEY ? 'on (claude-opus-5)' : 'off here — set ANTHROPIC_API_KEY, or paste a key under You → Smart entry'}`);
   console.log(`  access code    : ${TOKEN ? 'required off-localhost' : 'not set (localhost only for /api/parse)'}`);
 });

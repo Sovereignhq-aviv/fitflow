@@ -10,15 +10,19 @@ server: barcode scanning and plain-words food entry.
 portion in grams, and it logs the calories and macros. A dial shows calories left
 against your target; three bars show protein, carbs and fat. Weigh-ins go in here too.
 
-Two faster ways in, when the server is running:
+Two faster ways in:
 
-- **Describe it** — type "two scrambled eggs, a slice of toast with butter" and
-  Claude works out the weights and macros. You see every assumption it made
-  ("2 large eggs at 55 g each"), can adjust any weight, and can drop any item
-  before it is logged. Nothing is written until you confirm.
+- **Describe it** — type "two scrambled eggs, a slice of toast with butter", or
+  photograph the plate or the nutrition label, and Claude works out the weights
+  and macros. You see every assumption it made ("2 large eggs at 55 g each"),
+  can change any weight, and can drop any item. Nothing is logged until you
+  confirm. On the published claude.ai page this needs no setup at all — the page
+  is lent Claude directly and runs on your own Claude account. Photos work only
+  on that route.
 - **Scan barcode** — point the camera at a packet, or type the number underneath.
   Nutrition comes from Open Food Facts. Scanned products are saved into your own
-  food list, so the second scan of the same thing works offline.
+  food list, so the second scan of the same thing works offline. This one needs
+  the server: the claude.ai page is walled off from other sites.
 
 **Gym** — log a session as exercises with sets of weight × reps. Each exercise shows
 what you lifted last time so you know what to beat, plus session volume, estimated
@@ -51,11 +55,17 @@ Then open `http://localhost:8744`. The startup lines tell you which features are
 
 ### Turning on plain-words entry
 
-It needs an Anthropic API key on the server:
+On the published claude.ai page there is nothing to do — Claude comes with the
+page. Running from your own folder, it needs a key, either way round:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-... node server.mjs
 ```
+
+or leave the environment alone and paste a key into the app under
+**You → Smart entry → Your Anthropic API key**. A key typed there is kept on that
+device, sent only to your own server, used for that one request and never stored
+server-side or written to your backups.
 
 Each meal you describe costs a fraction of a cent (a few hundred tokens through
 `claude-opus-5` at low effort). Barcode lookup is free and needs no key.
@@ -87,9 +97,11 @@ Never edit `dist/artifact.html` directly — edit `index.html` and rebuild. The
 markers `<!--ARTIFACT:HEAD-START-->` and `<!--ARTIFACT:BODY-START-->` in
 `index.html` are what the build script slices on.
 
-The claude.ai host blocks all outbound connections from the page, so the artifact
-build is always the offline tracker: searching, logging, gym, and progress work;
-barcode and plain-words entry hide themselves and the **You** tab explains why.
+The claude.ai host blocks outbound connections from the page, so barcode lookup
+is never available there and the button hides itself. Plain-words entry *is*
+available there, through the page's `sample` capability — which is why the
+artifact is published declaring `sample` and `downloads`. Changing that
+declaration means passing `capabilities` explicitly on the next publish.
 
 ## Data
 
