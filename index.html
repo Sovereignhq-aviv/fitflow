@@ -781,15 +781,23 @@ let dDate = today();      // Today screen date
 let gDate = today();      // Gym screen date
 
 /* -------------------------------------------------------------- ai routes */
-/* Describing a meal can reach Claude two ways, and the app picks whichever
+/* Describing a meal can reach Claude three ways, and the app takes whichever
    this copy actually has:
      "sample" — published on claude.ai, which lends the page Claude directly.
-                Nothing to set up and photos work.
-     "server" — running from its own folder, which can hold an API key (in the
-                environment, or one typed into Settings and sent per request).
-   Barcode lookup needs the server either way: the claude.ai page is walled off
-   from the rest of the internet. */
-const AI = {checked:false, route:null, sample:null, photos:false, barcode:false, tokenRequired:false, acceptsKey:false};
+                Nothing to set up, and photos work.
+     "server" — running from its own folder with a key, in the environment or
+                typed into Settings and sent per request.
+     "direct" — the installed Android app, which talks to Claude itself using
+                the key you paste in. Photos work here too.
+   Barcode lookup is "server" when one is there and "direct" otherwise; only on
+   the claude.ai page is it impossible, because that page is walled off from the
+   rest of the internet. */
+const AI = {checked:false, route:null, sample:null, photos:false,
+            barcode:false, barcodeRoute:null, tokenRequired:false, acceptsKey:false};
+
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_VERSION = '2023-06-01';
+const ANTHROPIC_MODEL = 'claude-opus-5';
 
 const tokenGet = () => { try{ return localStorage.getItem('fitflow.token')||''; }catch(e){ return ''; } };
 const tokenSet = v => { try{ v ? localStorage.setItem('fitflow.token',v) : localStorage.removeItem('fitflow.token'); }catch(e){} };
@@ -830,6 +838,7 @@ function probeAI(){
     server.then(srv=>{
       if(!srv) return;
       AI.barcode = !!srv.barcode;
+      AI.barcodeRoute = 'server';
       AI.tokenRequired = !!srv.tokenRequired;
       AI.acceptsKey = !!srv.acceptsKey;
       if(!AI.route && (srv.ai || (srv.acceptsKey && keyGet()))){
@@ -840,7 +849,117 @@ function probeAI(){
     })
   ]);
 
-  return done.then(()=>{ AI.checked = true; aiSettled(); });
+  return done.then(()=>{
+    // Nothing answered for the artifact's walled-off page, so anything left
+    // here can reach the open internet: the installed app and a plain file.
+    if(!AI.sample){
+      if(!AI.barcodeRoute){ AI.barcodeRoute = 'direct'; AI.barcode = true; }
+      if(!AI.route && keyGet()){ AI.route = 'direct'; AI.photos = true; }
+      AI.acceptsKey = true;                  // a key is useful on this copy
+    }
+    AI.checked = true;
+    aiSettled();
+  });
+}
+
+/* Claude, called straight from the page with the key you pasted in. The browser
+   only reaches api.anthropic.com when that last header is present. */
+const FOOD_SCHEMA = {
+  type:'json_schema',
+  schema:{
+    type:'object', additionalProperties:false,
+    required:['items','meal','unclear'],
+    properties:{
+      items:{type:'array', items:{
+        type:'object', additionalProperties:false,
+        required:['name','grams','kcal','protein_g','carbs_g','fat_g','assumption'],
+        properties:{
+          name:{type:'string'}, grams:{type:'number'}, kcal:{type:'number'},
+          protein_g:{type:'number'}, carbs_g:{type:'number'}, fat_g:{type:'number'},
+          assumption:{type:'string'}
+        }}},
+      meal:{type:'string', enum:MEALS},
+      unclear:{type:'array', items:{type:'string'}}
+    }
+  }
+};
+const blobToBase64 = blob => new Promise((res,rej)=>{
+  const fr=new FileReader();
+  fr.onerror=()=>rej(new Error('Could not read that photo.'));
+  fr.onload=()=>res(String(fr.result).split(',')[1]||'');
+  fr.readAsDataURL(blob);
+});
+async function anthropicParse(text, meal, photo, signal){
+  const key = keyGet();
+  if(!key){ const e=new Error('No API key saved. Add one under You → Smart entry.'); e.code='no_key'; throw e; }
+
+  const content = [];
+  if(photo){
+    const type = /png$/i.test(photo.type) ? 'image/png' : /webp$/i.test(photo.type) ? 'image/webp' : 'image/jpeg';
+    content.push({type:'image', source:{type:'base64', media_type:type, data:await blobToBase64(photo)}});
+  }
+  content.push({type:'text', text:FOOD_PROMPT(text, meal, !!photo)});
+
+  const r = await fetch(ANTHROPIC_URL, {
+    method:'POST', signal,
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':ANTHROPIC_VERSION,
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:ANTHROPIC_MODEL,
+      max_tokens:4096,
+      output_config:{effort:'low', format:FOOD_SCHEMA},
+      messages:[{role:'user', content:content}]
+    })
+  });
+
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok){
+    const kind = j && j.error && j.error.type;
+    const e = new Error(
+      r.status===401 ? 'Your API key was rejected. Check it under You → Smart entry.'
+      : r.status===429 ? 'Anthropic is rate-limiting you. Wait a minute and try again.'
+      : (j && j.error && j.error.message) || ('Claude returned an error ('+r.status+').'));
+    e.code = kind || 'http_'+r.status;
+    throw e;
+  }
+  if(j && j.stop_reason==='refusal'){
+    const e=new Error(AI_ERRORS.refused); e.code='refused'; throw e;
+  }
+  const blocks = (j && j.content) || [];
+  const raw = blocks.filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+  let out = j && j.parsed_output;
+  if(!out){
+    const body = raw.replace(/^```(?:json)?\s*|\s*```$/g,'');
+    const start = body.search(/[[{]/);
+    try{ out = JSON.parse(start>0 ? body.slice(start) : body); }
+    catch(e2){ const e=new Error(AI_ERRORS.invalid_json); e.code='invalid_json'; throw e; }
+  }
+  return out;
+}
+
+/* Open Food Facts answers browsers directly, so the installed app needs no
+   server for this either. */
+async function lookupBarcodeDirect(code){
+  const fields='code,product_name,generic_name,brands,serving_quantity,nutriments';
+  const r = await fetch('https://world.openfoodfacts.org/api/v2/product/'
+    + encodeURIComponent(code) + '.json?fields=' + fields, {signal:AbortSignal.timeout(12000)});
+  if(!r.ok) throw new Error('Open Food Facts returned ' + r.status + '.');
+  const data = await r.json();
+  if(data.status!==1 || !data.product) return {found:false, code:code};
+  const p=data.product, n=p.nutriments||{};
+  const kcal = n['energy-kcal_100g'] != null ? n['energy-kcal_100g']
+             : (n.energy_100g != null ? n.energy_100g/4.184 : null);
+  if(kcal==null) return {found:false, code:code, reason:'no_nutrition'};
+  const num = v => (typeof v==='number' && isFinite(v)) ? v : 0;
+  const name = [p.product_name||p.generic_name, p.brands?String(p.brands).split(',')[0].trim():'']
+    .filter(Boolean).join(' — ') || ('Barcode '+code);
+  return {found:true, code:code, name:name,
+    kcal:r1(num(kcal)), p:r1(num(n.proteins_100g)), c:r1(num(n.carbohydrates_100g)),
+    f:r1(num(n.fat_100g)), serving:num(p.serving_quantity)||0};
 }
 const aiReady = () => AI.route === 'sample' || AI.route === 'server';
 
@@ -907,6 +1026,10 @@ async function aiParse(text, meal, photo, signal, onProgress){
       onText: onProgress ? ()=>onProgress('writing') : undefined
     });
     return normaliseItems(out);
+  }
+  if(AI.route==='direct'){
+    if(onProgress) onProgress('writing');
+    return normaliseItems(await anthropicParse(text, meal, photo, signal));
   }
   const headers = {'content-type':'application/json'};
   const tk = tokenGet(); if(tk) headers['x-fitflow-token'] = tk;
@@ -1247,22 +1370,28 @@ function renderSmart(){
 
   const how = AI.route==='sample'
     ? 'Claude comes with the page here — nothing to set up, and it runs on your own Claude account.'
-    : AI.route==='server'
-      ? 'Handled by the server this page came from.'
-      : '';
+    : AI.route==='direct'
+      ? 'This app talks to Claude itself, using the key below.'
+      : AI.route==='server'
+        ? 'Handled by the server this page came from.'
+        : '';
 
   el.innerHTML =
     row(aiReady(), AI.photos ? 'Describe or photograph food' : 'Describe food in words', aiReady()
         ? how + ' You see every weight it assumed and can change them before anything is logged.'
-        : 'Not available in this copy. Either open the app from its claude.ai link, or run it from its folder with <b>node server.mjs</b>.')
+        : AI.acceptsKey
+          ? 'Paste an Anthropic API key below to switch this on.'
+          : 'Not available in this copy. Open the app from its claude.ai link, or run it from its folder with <b>node server.mjs</b>.')
     + row(AI.barcode,'Barcode scanning', AI.barcode
         ? 'Nutrition comes from Open Food Facts. Scanned products are saved into your foods, so a rescan works offline.'
-        : 'Needs the app running from its own folder — the claude.ai page is walled off from other sites.')
+        : 'Not here — the claude.ai page is walled off from other sites. It works in the installed app and when you run it from its own folder.')
     + (AI.acceptsKey
         ? '<div class="field" style="margin-top:14px"><label for="keyIn">Your Anthropic API key</label>'
           + '<input type="password" id="keyIn" autocomplete="off" spellcheck="false" value="'+esc(keyGet())+'" placeholder="sk-ant-…">'
-          + '<p class="hint">Optional. Paste one here and this device uses it instead of the server’s own key. '
-          + 'Kept on this device, sent only to your own server, and left out of backups.</p></div>'
+          + '<p class="hint">' + (AI.route==='direct' || !AI.barcodeRoute || AI.barcodeRoute==='direct'
+              ? 'Needed for describing food in this app. It is kept on this device, sent only to Anthropic, and left out of backups. Get one at console.anthropic.com.'
+              : 'Optional. Paste one here and this device uses it instead of the server’s own key. Kept on this device, sent only to your own server, and left out of backups.')
+          + '</p></div>'
         : '')
     + (AI.tokenRequired
         ? '<div class="field" style="margin-top:14px"><label for="tkIn">Access code</label>'
@@ -1461,9 +1590,14 @@ function barcodeSheet(meal){
         if(known){ portionSheet(known, meal); return; }
         $('#bcOut').innerHTML='<div class="working"><i class="spin"></i>Looking up '+esc(code)+'…</div>';
         try{
-          const r=await fetch('./api/barcode/'+encodeURIComponent(code),{signal:AbortSignal.timeout(15000)});
-          const j=await r.json();
-          if(!r.ok) throw new Error(j.error||'Lookup failed');
+          let j;
+          if(AI.barcodeRoute==='server'){
+            const r=await fetch('./api/barcode/'+encodeURIComponent(code),{signal:AbortSignal.timeout(15000)});
+            j=await r.json();
+            if(!r.ok) throw new Error(j.error||'Lookup failed');
+          } else {
+            j=await lookupBarcodeDirect(code);
+          }
           if(!j.found){
             $('#bcOut').innerHTML='<div class="warn">No nutrition on file for '+esc(code)+'. '
               + 'Add it once from the label and it is yours forever.</div>'

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors the web app's background token in each theme, so there is no
+         flash of the wrong colour before the page paints. -->
+    <color name="ground">#F4F5F7</color>
+    <color name="icon_ground">#131519</color>
+</resources>

@@ -1,0 +1,111 @@
+name: Build APK
+
+# Builds the installable Android app in the cloud, so no Android tooling has to
+# exist on the laptop. Every push attaches an APK to the run; pushing a v* tag
+# also publishes it as a release, which is the link to open on the phone.
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The action's default package list still names the long-retired "tools"
+      # package, which newer runner images do not carry and sdkmanager fails over.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+
+      - name: Install the platform this app targets
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      # Every build must use the same key or Android refuses to install a new
+      # version over an old one. A published key is worse than none, so it lives
+      # in a repository secret. Without the secret a throwaway key is generated
+      # and uploaded, ready to be stored as the secret for later builds.
+      - name: Restore or create the signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 -d > debug.keystore
+            echo "Signing with the stored key."
+          else
+            echo "No DEBUG_KEYSTORE_B64 secret; generating a throwaway key for this build."
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10950 \
+              -dname "CN=FitFlow,O=FitFlow,C=US"
+            echo "GENERATED_KEYSTORE=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Upload the generated key so it can become the secret
+        if: env.GENERATED_KEYSTORE == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-keystore
+          path: debug.keystore
+          if-no-files-found: error
+
+      # Pinned, because Android Gradle Plugin 8.7 only works with a known range.
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build the APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Check the web app actually got bundled
+        run: |
+          set -e
+          test -s android/app/src/main/assets/index.html
+          grep -q "FitFlow" android/app/src/main/assets/index.html
+          echo "index.html bundled ($(wc -c < android/app/src/main/assets/index.html) bytes)"
+
+      - name: Rename for clarity
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/FitFlow.apk
+          ls -l out/FitFlow.apk
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FitFlow-apk
+          path: out/FitFlow.apk
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/FitFlow.apk --clobber
+          else
+            gh release create "$TAG" out/FitFlow.apk --title "FitFlow ${TAG#v}" --generate-notes
+          fi
+
+      - name: Upload the build report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-report
+          path: android/app/build/reports/
+          if-no-files-found: ignore

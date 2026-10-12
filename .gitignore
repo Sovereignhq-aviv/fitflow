@@ -1,2 +1,12 @@
 node_modules/
 *.log
+
+# Android build output and the signing key, which never belongs in the repo
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+debug.keystore
+
+# Copied from the root index.html at build time; the root file is the source of truth
+android/app/src/main/assets/
