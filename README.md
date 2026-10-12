@@ -1,8 +1,8 @@
 # FitFlow
 
-A food and training log. The core runs entirely in the browser — no account, no
-server, your data in the browser's own storage. Two extras need the bundled
-server: barcode scanning and plain-words food entry.
+An Android app, and the same thing as a web page. A food and training log with
+no account and no server: your data stays in the app's own storage and is never
+uploaded anywhere.
 
 ## What it does
 
@@ -36,12 +36,33 @@ a weight chart, 14 days of calories against target, and your best lift per exerc
 you burn (Mifflin-St Jeor × activity factor), applies your goal and pace, and sets
 daily calorie and macro targets. Every number can be overridden by hand.
 
-## Running it
+## Installing it on a phone
 
-`index.html` on its own is the whole tracker — open it in a browser and it works,
-minus the two network features.
+Download **FitFlow.apk** from the [latest release](https://github.com/Sovereignhq-aviv/fitflow/releases/latest)
+and open it. The repository is private, so the phone's browser has to be signed
+in to GitHub for the download to start. Android will ask once for permission to
+install from that browser.
 
-For everything, install once and start the server:
+Only releases from **v1.1** onwards share a signing key, so a later version
+installs straight over an earlier one. v1.0 was signed with a throwaway key and
+would have to be uninstalled first.
+
+Everything works in the app with nothing configured: food search, logging, the
+gym log, progress, and barcode scanning. Describing a meal in words needs an
+Anthropic API key pasted into **You → Smart entry**; the app calls Claude itself,
+so there is no server in the middle.
+
+### Moving your log into the app
+
+The log lives in each copy's own storage, so the app starts empty. On the
+claude.ai page use **You → Export backup**, then in the app **You → Import
+backup**. That is also how you move between phones.
+
+## Running it on a computer
+
+`index.html` on its own is the whole tracker — open it in a browser and it works.
+
+For the server version, which keeps an API key out of the browser:
 
 ```bash
 npm install
@@ -51,39 +72,52 @@ npm install
 node server.mjs
 ```
 
-Then open `http://localhost:8744`. The startup lines tell you which features are on.
+Then open `http://localhost:8744`. The startup lines say which features are on.
 
-### Turning on plain-words entry
+### Where the AI comes from
 
-On the published claude.ai page there is nothing to do — Claude comes with the
-page. Running from your own folder, it needs a key, either way round:
+The app takes whichever of three routes the copy it is running in has:
 
-```bash
-ANTHROPIC_API_KEY=sk-ant-... node server.mjs
-```
+| Route | Where | Setup | Photos |
+|---|---|---|---|
+| `sample` | the claude.ai page | none — Claude comes with the page | yes |
+| `direct` | the installed app, or any plain copy | your API key, pasted into the app | yes |
+| `server` | `node server.mjs` | `ANTHROPIC_API_KEY`, or a key pasted into the app | no |
 
-or leave the environment alone and paste a key into the app under
-**You → Smart entry → Your Anthropic API key**. A key typed there is kept on that
-device, sent only to your own server, used for that one request and never stored
-server-side or written to your backups.
+Barcode lookup goes straight to Open Food Facts from the page, except on the
+claude.ai page, which is walled off from other sites and hides the button.
 
-Each meal you describe costs a fraction of a cent (a few hundred tokens through
-`claude-opus-5` at low effort). Barcode lookup is free and needs no key.
+### Deploying the server version
 
-### Using it from your phone
-
-The app checks `/api/health` on load and hides the two buttons if it cannot reach
-the server, so a phone needs the server reachable — and **the camera only works
-over https**, which rules out plain `http://<laptop-ip>:8744`. Deploy it (Railway,
-Fly, anything that runs `npm start`) and set:
+Set these on any host that runs `npm start`:
 
 | Variable | Why |
 |---|---|
-| `ANTHROPIC_API_KEY` | enables plain-words entry |
-| `FITFLOW_TOKEN` | **required for a public deploy** — a shared code the app must send before `/api/parse` will spend anything. Enter it once under **You → Smart entry → Access code**. |
+| `ANTHROPIC_API_KEY` | enables plain-words entry without anyone pasting a key |
+| `FITFLOW_TOKEN` | **required for a public deploy** — a shared code the app must send before `/api/parse` will spend anything |
 
 Without `FITFLOW_TOKEN`, `/api/parse` refuses every request that is not from
 localhost, so a public URL cannot burn your API credit by accident.
+
+## Building the app
+
+`.github/workflows/build-apk.yml` builds the APK in the cloud; nothing Android
+has to be installed locally. Every push attaches an APK to the run, and pushing
+a `v*` tag publishes a release.
+
+```bash
+git tag -a v1.2 -m "what changed" && git push origin main --follow-tags
+```
+
+The signing key lives in the `DEBUG_KEYSTORE_B64` repository secret. Every build
+must use it or Android refuses to install the new version over the old one.
+
+`android/` holds the shell: a WebView that serves the bundled `index.html`
+through `WebViewAssetLoader`. That gives the page a real https origin, which is
+what lets it use the camera and call Claude and Open Food Facts — a `file://`
+page is an opaque origin that all three refuse. Gradle copies `index.html` into
+assets at build time, so the root file stays the only copy. Launcher icons are
+drawn by `tools/make-icons.mjs`.
 
 ## The published version
 
