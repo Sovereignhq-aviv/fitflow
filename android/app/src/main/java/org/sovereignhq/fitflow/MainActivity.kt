@@ -11,8 +11,10 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +40,41 @@ class MainActivity : ComponentActivity() {
 
     /** Set while the page's file input is open. */
     private var pendingFiles: ValueCallback<Array<Uri>>? = null
+
+    /** Backup text waiting for the user to choose where to put it. */
+    private var pendingBackup: String? = null
+
+    // A WebView ignores an <a download>, so the page's Export button would do
+    // nothing at all here. The document picker needs no permission on any
+    // version and lets the file land somewhere the user can actually find.
+    private val saveBackup = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val text = pendingBackup
+        pendingBackup = null
+        if (uri == null || text == null) return@registerForActivityResult
+        val wrote = runCatching {
+            contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+        }.isSuccess
+        Toast.makeText(
+            this,
+            if (wrote) getString(R.string.backup_saved) else getString(R.string.backup_failed),
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    /** The page calls this instead of a download link when it is running in the app. */
+    private inner class Bridge {
+        @JavascriptInterface
+        fun saveBackup(filename: String, json: String) {
+            if (json.isEmpty()) return
+            runOnUiThread {
+                pendingBackup = json
+                runCatching { this@MainActivity.saveBackup.launch(filename) }
+                    .onFailure { pendingBackup = null }
+            }
+        }
+    }
 
     private val askCamera = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -140,6 +177,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+
+            addJavascriptInterface(Bridge(), "FitFlowAndroid")
 
             loadUrl("https://$APP_HOST/index.html")
         }

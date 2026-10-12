@@ -1939,6 +1939,13 @@ if(window.claude && typeof window.claude.use==='function'){
 $('#expBtn').addEventListener('click',async ()=>{
   const json=JSON.stringify(S,null,2);
   const filename='fitflow-backup-'+today()+'.json';
+  // A WebView ignores a download link, so the installed app hands the file to
+  // Android's own "save to…" picker instead.
+  if(window.FitFlowAndroid && typeof window.FitFlowAndroid.saveBackup==='function'){
+    window.FitFlowAndroid.saveBackup(filename, json);
+    toast('Choose where to save it');
+    return;
+  }
   if(saver){
     try{ await saver.save({filename,data:json}); toast('Backup saved'); }
     catch(err){ if(err&&err.code!=='declined') toast('Could not save the backup'); }

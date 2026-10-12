@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FitFlow</string>
+    <string name="backup_saved">Backup saved</string>
+    <string name="backup_failed">Could not write that file</string>
 </resources>
