@@ -38,10 +38,12 @@ daily calorie and macro targets. Every number can be overridden by hand.
 
 ## Installing it on a phone
 
-Download **FitFlow.apk** from the [latest release](https://github.com/Sovereignhq-aviv/fitflow/releases/latest)
-and open it. The repository is private, so the phone's browser has to be signed
-in to GitHub for the download to start. Android will ask once for permission to
-install from that browser.
+Open this on the phone and the download starts — no account, no sign-in:
+
+**https://github.com/Sovereignhq-aviv/fitflow/releases/latest/download/FitFlow.apk**
+
+That link always points at the newest release. Android will ask once for
+permission to install from your browser.
 
 Only releases from **v1.1** onwards share a signing key, so a later version
 installs straight over an earlier one. v1.0 was signed with a throwaway key and
